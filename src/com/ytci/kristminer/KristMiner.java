@@ -29,6 +29,7 @@ public class KristMiner {
         @Override
         public void run() {
             try {
+                long nonce = 0;
                 while(true) {
                     {
                         if(KristMiner.isPaused()) {
@@ -38,8 +39,8 @@ public class KristMiner {
                         }
                         lock.lock();
                         int i = 0;
-                        for(; i < 100000; i++) {
-                            String nonceStr = Long.toString(i, 36);
+                        for(; i < 100000; i++, nonce++) {
+                            String nonceStr = Long.toString(nonce, 36);
                             long hashNum = SHA256.hashToLong(SHA256.digest((addrWBlock + nonceStr).getBytes(StandardCharsets.UTF_8)));
                             if(hashNum < work) {
                                 synchronized(sendingSolutionLock) {
