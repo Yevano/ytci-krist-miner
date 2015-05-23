@@ -5,8 +5,47 @@ import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.locks.ReentrantLock;
+import java.net.URI;
+import javax.websocket.Session;
 
 public class KristMiner {
+	public WebsocketClientEndpoint startWebsocket()
+	{
+		String wsUrl = "ws://s2.galatical.com:8080";
+		System.out.println("Connecting to " + wsUrl);
+		WebsocketClientEndpoint ws = new WebsocketClientEndpoint(URI.create(wsUrl));
+		ws.addMessageHandler(new WebsocketClientEndpoint.MessageHandler() {
+			
+			public void handleMessage(String message) {
+				//TODO do stuff with messages.
+				if (message.startsWith("NewBlock:"))
+				{
+					String[] blockSplit = message.split(":");
+					String nBlock = blockSplit[(blockSplit.length-1) ];
+					if(nBlock.length() != 12) {
+						nBlock = getBlock();
+					}
+					if (!nBlock.equals(getBlock())) {
+						setBlock(nBlock);
+						KristMiner.blockChanged(nBlock);
+					}
+				}
+				if (message.startsWith("WorkChanged:"))
+				{
+					String[] workSplit = message.split(":");
+					String nWork = workSplit[(workSplit.length-1) ];
+					if (isInteger(nWork)) {
+						int iNewWork = Integer.parseInt(nWork);
+						if (iNewWork != getWork()) {
+							setWork(iNewWork);
+							KristMiner.workChanged(iNewWork);
+						}
+					}
+				}
+			}
+		});
+		return ws;
+	}
     static class WorkerThread extends Thread {
         private static final Object accSendingSolutionLock = new Object();
         private static final Object sendingSolutionLock = new Object();
@@ -112,65 +151,79 @@ public class KristMiner {
 
         @Override
         public void run() {
-            String block, oldBlock = "";
-            int work, oldWork = 0;
-            int balance, oldBalance = 0;
-            try {
-                block = APICalls.getLastBlock();
-                oldBlock = block;
-                System.out.println("Beginning on block: " + block);
-                KristMiner.block = block;
-                for(int i = 0; i < numThreads; i++) {
-                    workers.get(i).sendParams(block, KristMiner.work);
-                }
-                //KristMiner.blockChanged(block);
-                work = Integer.parseInt(APICalls.getWork());
-                oldWork = work;
-                KristMiner.workChanged(work);
-                balance = Integer.parseInt(APICalls.getBalance(address));
-                oldBalance = balance;
-                KristMiner.balanceChanged(balance);
-                synchronized(ready) {
-                    ready.notify();
-                }
-                Thread.sleep(updateMS);
-                while(true) {
-                    System.out.println(block + " " + work + " " + balance + "KST" + " @ " + format.format(KristMiner.getHPS()/1000000) + "MH/s @ " + format.format(KristMiner.getBPM()) + "B/min Done: " + KristMiner.getBlocksDone());
-                    long lastTime = System.currentTimeMillis();
-                    block = APICalls.getLastBlock();
-                    if(block.length() != 12) {
-                        block = oldBlock;
-                    }
-                    if(!block.equals(oldBlock)) {
-                        oldBlock = block;
-                        KristMiner.blockChanged(block);
-                    }
-                    try {
-                        work = Integer.parseInt(APICalls.getWork());
-                    } catch(Exception e) {
-                        work = oldWork;
-                    }
-                    if(work != oldWork) {
-                        oldWork = work;
-                        KristMiner.workChanged(work);
-                    }
-                    try {
-                        balance = Integer.parseInt(APICalls.getBalance(address));
-                    } catch(Exception e) {
-                        balance = oldBalance;
-                    }
-                    if(balance != oldBalance) {
-                        oldBalance = balance;
-                        KristMiner.balanceChanged(balance);
-                    }
-                    long sleepTime = updateMS - (System.currentTimeMillis() - lastTime);
-                    if(sleepTime > 0)
-                        Thread.sleep(sleepTime);
-                }
-            } catch(Exception e) {
-                System.err.println("Error in API poll thread: ");
-                e.printStackTrace();
-            }
+        	String block, oldBlock = "";
+        	int work, oldWork = 0;
+        	int balance, oldBalance = 0;
+        	try {
+        		KristMiner client = new KristMiner();
+    	    	WebsocketClientEndpoint ws = client.startWebsocket();
+        		block = APICalls.getLastBlock();
+        		oldBlock = block;
+        		System.out.println("Beginning on block: " + block);
+        		KristMiner.block = block;
+        		for(int i = 0; i < numThreads; i++) {
+        			workers.get(i).sendParams(block, KristMiner.work);
+        		}
+        		//KristMiner.blockChanged(block);
+        		work = Integer.parseInt(APICalls.getWork());
+        		oldWork = work;
+        		KristMiner.workChanged(work);
+        		balance = Integer.parseInt(APICalls.getBalance(address));
+        		oldBalance = balance;
+        		KristMiner.balanceChanged(balance);
+        		synchronized(ready) {
+        			ready.notify();
+        		}
+        		Thread.sleep(updateMS);
+        		while(true) {
+        			long lastTime = System.currentTimeMillis();
+        			if (ws.userSession != null) {
+        				block = getBlock();
+        				work = getWork();
+        				System.out.println(block + " " + work + " " + balance + "KST" + " @ " + format.format(KristMiner.getHPS()/1000000) + "MH/s @ " + format.format(KristMiner.getBPM()) + "B/min Done: " + KristMiner.getBlocksDone());
+        				lastTime = System.currentTimeMillis();
+        				try {
+        					balance = Integer.parseInt(APICalls.getBalance(address));
+        				} catch(Exception e) {
+        					balance = oldBalance;
+        				}
+        				if (balance != oldBalance) {
+        					oldBalance = balance;
+        					KristMiner.balanceChanged(balance);
+        				}
+        			} else {
+    	        		System.out.println("Lost connection to websocket, reconnecting...");
+    	        		int waitTime;
+    	        		int totalWaitTime;
+    	        		waitTime = 1000;
+    	        		totalWaitTime = 0;
+    	        		boolean reconnected;
+    	        		reconnected = false;
+    	        		while (reconnected != true) {
+    	            		Thread.sleep(waitTime);
+    	            		totalWaitTime = totalWaitTime + (waitTime / 1000);
+    	            		waitTime = waitTime*2;
+    	            		if(waitTime > 300000)
+    	            			waitTime = 300000;
+    	            		client = new KristMiner();
+    	            		ws = client.startWebsocket();
+    	            		if (ws.userSession != null) {
+    	            			reconnected = true;
+    	            			System.out.println("Reconnected to websocket after " + totalWaitTime + " seconds.");
+    	            		} else {
+    	            			System.out.println("Failed to reconnect to websocket, trying again in " + (waitTime / 1000) + " seconds.");
+    	            		}
+    	        		}
+        			}
+        			long sleepTime = updateMS - (System.currentTimeMillis() - lastTime);
+        			if(sleepTime > 0)
+        				System.out.println("Sleeping " + sleepTime);
+        				Thread.sleep(sleepTime);
+        		}
+        	} catch(Exception e) {
+        		System.err.println("Error in API poll thread: ");
+        		e.printStackTrace();
+        	}
         }
     }
 
@@ -179,6 +232,8 @@ public class KristMiner {
     static int numThreads;
     static String address;
     static boolean paused = false;
+    static final Object blockLock = new Object();
+    static final Object workLock = new Object();
     static final Object newBlockReady = new Object();
     static final Object pausedLock = new Object();
     static final Object submitReady = new Object();
@@ -280,6 +335,54 @@ public class KristMiner {
                 workers.get(i).unpause();
             }
         }
+    }
+    
+    public static boolean isInteger(String str) {
+    	if (str == null) {
+    		return false;
+    	}
+    	int length = str.length();
+    	if (length == 0) {
+    		return false;
+    	}
+    	int i = 0;
+    	if (str.charAt(0) == '-') {
+    		if (length == 1) {
+    			return false;
+    		}
+    		i = 1;
+    	}
+    	for (; i < length; i++) {
+    		char c = str.charAt(i);
+    		if (c <= '/' || c >= ':') {
+    			return false;
+    		}
+    	}
+    	return true;
+    }
+    
+    public static void setBlock(String previousBlock) {
+    	synchronized(blockLock) {
+    		block = previousBlock;
+    	}
+    }
+    
+    public static String getBlock() {
+    	synchronized(blockLock) {
+    		return block;
+    	}
+    }
+    
+    public static void setWork(int newWork) {
+    	synchronized(workLock) {
+    		work = newWork;
+    	}
+    }
+    
+    public static int getWork() {
+    	synchronized(workLock) {
+    		return work;
+    	}
     }
 
     public static void addHashesDone(int amt) {

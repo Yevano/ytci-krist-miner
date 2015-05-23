@@ -7,7 +7,7 @@ import java.io.InputStreamReader;
 import java.net.URL;
 
 public class APICalls {
-    private static String syncNode = "http://65.26.252.225/quest/dia/krist/?";
+    private static String syncNode = "http://ceriat.net/krist/?";
 
     private static String webGet(String page) {
         URL url;
@@ -33,6 +33,7 @@ public class APICalls {
                 return null;
             }
         }
+        
         return sb.toString();
     }
 
