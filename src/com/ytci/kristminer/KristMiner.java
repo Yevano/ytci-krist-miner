@@ -206,6 +206,8 @@ public class KristMiner {
         System.exit(0);
     }
 
+    static CLContext theCLContext = new CLContext();
+
     public static void main(String[] args) {
         /*byte[] h = SHA256.digest("asdashfbhejf8".getBytes());
         for(int i = 0; i < h.length; i++) {
@@ -216,6 +218,11 @@ public class KristMiner {
         System.exit(0);*/
         //System.out.println(SHA256.hashToLong(SHA256.digest("khic3jtob0000000001da55160969".getBytes(StandardCharsets.UTF_8))));
         //System.exit(0);
+
+
+        theCLContext = new CLContext(); // Initialises an OpenCL context.
+
+        // TODO: Should this really be in main?
 
         if(args.length < 2) showUsage();
         address = args[0];
