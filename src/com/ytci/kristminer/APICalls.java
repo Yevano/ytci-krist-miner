@@ -7,7 +7,7 @@ import java.io.InputStreamReader;
 import java.net.URL;
 
 public class APICalls {
-    private static String syncNode = "http://65.26.252.225/quest/dia/krist/?";
+    private static String syncNode = "http://krist.ceriat.net/?";
 
     private static String webGet(String page) {
         URL url;
@@ -46,6 +46,14 @@ public class APICalls {
 
     public static String getWork() {
         return getPage("getwork");
+    }
+
+    public static String getMoneySupply() {
+        return getPage("getmoneysupply");
+    }
+
+    public static String getBlockValue() {
+        return getPage("getbaseblockvalue") + ", +" + getPage("namebonus");
     }
 
     public static String getBalance(String address) {
