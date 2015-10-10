@@ -220,7 +220,7 @@ public class KristMiner {
         opts.addOption("p","prefix",true,"optional - prefix for submitted nonces - if you run multiple miners, this should be unique for each miner.");
         opts.addOption("?","help",false,"show this help");
         try {
-			CommandLine cmd = new GnuParser().parse(opts, args);
+			CommandLine cmd = new DefaultParser().parse(opts, args);
 			if (cmd.hasOption("a") && !cmd.hasOption("?")) {
 				address = cmd.getOptionValue("a");
 			}
