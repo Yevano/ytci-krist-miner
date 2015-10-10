@@ -54,6 +54,7 @@ public class APICalls {
 
     public static void submitBlock(String address, String nonce) {
         getPage("submitblock&address=" + address + "&nonce=" + nonce);
+        System.out.println("nonce: "+nonce);
     }
 
     public static void updateSyncNode() {
