@@ -196,18 +196,6 @@ public class KristMiner {
     static int work;
     static int balance;
 
-    private static void showUsage() {
-        System.out.println("Arguments: <address> <threads> [prefix]");
-        System.out.println("    address: The krist address to mine for.");
-        System.out.println("    threads: The number of mining threads to spawn. In general,\n" +
-                           "             this should be less than or equal to the number of\n" +
-                           "             CPU cores on your system.");
-        System.out.println("    prefix:  A prefix for the submitted nonces. If you run     \n" +
-                           "             multiple miners for the same address, this should \n" +
-                           "             be unique for each miner.");
-        System.exit(0);
-    }
-
     static CLContext theCLContext = new CLContext();
 
     public static void main(String[] args) {
