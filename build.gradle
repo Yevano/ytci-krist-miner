@@ -24,4 +24,5 @@ dependencies {
     compile "org.lwjgl:lwjgl-platform:${lwjglVersion}:natives-windows"
     compile "org.lwjgl:lwjgl-platform:${lwjglVersion}:natives-linux"
     compile "org.lwjgl:lwjgl-platform:${lwjglVersion}:natives-osx"
+	compile "commons-cli:commons-cli:1.2"
 }

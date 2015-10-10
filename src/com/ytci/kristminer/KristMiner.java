@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.locks.ReentrantLock;
 
+import org.apache.commons.cli.*;
+
 public class KristMiner {
     static class WorkerThread extends Thread {
         private static final Object accSendingSolutionLock = new Object();
@@ -209,84 +211,83 @@ public class KristMiner {
     static CLContext theCLContext = new CLContext();
 
     public static void main(String[] args) {
-        /*byte[] h = SHA256.digest("asdashfbhejf8".getBytes());
-        for(int i = 0; i < h.length; i++) {
-            System.out.print((((int)h[i]) + 0) + ";");
-        }
-        System.out.println("\n" + SHA256.bytesToHex(h));
-        System.out.println(SHA256.hashToLong(h));
-        System.exit(0);*/
-        //System.out.println(SHA256.hashToLong(SHA256.digest("khic3jtob0000000001da55160969".getBytes(StandardCharsets.UTF_8))));
-        //System.exit(0);
-
-
         theCLContext = new CLContext(); // Initialises an OpenCL context.
 
         // TODO: Should this really be in main?
 
-        if(args.length < 2) showUsage();
-        address = args[0];
+        Options opts = new Options();
+        opts.addOption("a","address",true,"krist address to mine for");
+        opts.addOption("p","prefix",true,"optional - prefix for submitted nonces - if you run multiple miners, this should be unique for each miner.");
+        opts.addOption("?","help",false,"show this help");
         try {
-            numThreads = Integer.parseInt(args[1]);
-        } catch(NumberFormatException e) {
-            System.out.println("threads must be a positive integer.");
-            showUsage();
-        }
-        if(numThreads < 1) {
-            System.out.println("threads must be a positive integer.");
-            showUsage();
-        }
-
-        startTime = System.currentTimeMillis();
-
-        System.out.print("Getting sync node... ");
-        APICalls.updateSyncNode();
-        System.out.println("DONE");
-
-        String prefix = args.length > 2 ? args[2] : "";
-        for(int i = 0; i < numThreads; i++) {
-            WorkerThread t = new WorkerThread(address, prefix + Integer.toString(i, 16));
-            workers.add(t);
-        }
-
-        final Object ready = new Object();
-        apiThread = new APIThread(address, 1000, ready);
-        apiThread.start();
-        try {
-            synchronized(ready) {
-                ready.wait();
-            }
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        for(int i = 0; i < numThreads; i++) {
-            workers.get(i).start();
-        }
-
-        while(true) {
-            synchronized(submitReady) {
-                try {
-                    submitReady.wait();
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-            APICalls.submitBlock(address, nonceSubmission);
-            try {
-                synchronized(newBlockReady) {
-                    System.out.println("Waiting for the next block.");
-                    newBlockReady.wait();
-                }
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            WorkerThread.setSendingSolution(false);
-            pause(false);
-            for(int i = 0; i < numThreads; i++) {
-                workers.get(i).unpause();
-            }
-        }
+			CommandLine cmd = new GnuParser().parse(opts, args);
+			if (cmd.hasOption("a") && !cmd.hasOption("?")) {
+				address = cmd.getOptionValue("a");
+			}
+			else {
+				new HelpFormatter().printHelp("java -jar KristMiner.jar", opts);
+				System.exit(0);
+			}
+			String prefix = "";
+			if (cmd.hasOption("p")) {
+				prefix = cmd.getOptionValue("p");
+			}
+        
+	        startTime = System.currentTimeMillis();
+	
+	        System.out.print("Getting sync node... ");
+	        APICalls.updateSyncNode();
+	        System.out.println("DONE");
+	        
+	        System.out.println("Mining for address "+address);
+	        
+	        for(int i = 0; i < numThreads; i++) {
+	            WorkerThread t = new WorkerThread(address, prefix + Integer.toString(i, 16));
+	            workers.add(t);
+	        }
+	
+	        final Object ready = new Object();
+	        apiThread = new APIThread(address, 1000, ready);
+	        apiThread.start();
+	        try {
+	            synchronized(ready) {
+	                ready.wait();
+	            }
+	        } catch (InterruptedException e) {
+	            e.printStackTrace();
+	        }
+	
+	        for(int i = 0; i < numThreads; i++) {
+	            workers.get(i).start();
+	        }
+	
+	        while(true) {
+	            synchronized(submitReady) {
+	                try {
+	                    submitReady.wait();
+	                } catch (InterruptedException e) {
+	                    e.printStackTrace();
+	                }
+	            }
+	            APICalls.submitBlock(address, nonceSubmission);
+	            try {
+	                synchronized(newBlockReady) {
+	                    System.out.println("Waiting for the next block.");
+	                    newBlockReady.wait();
+	                }
+	            } catch (InterruptedException e) {
+	                e.printStackTrace();
+	            }
+	            WorkerThread.setSendingSolution(false);
+	            pause(false);
+	            for(int i = 0; i < numThreads; i++) {
+	                workers.get(i).unpause();
+	            }
+	        }
+		} catch (ParseException e) {
+			e.printStackTrace();
+			System.exit(-1);
+		}
     }
 
     public static void addHashesDone(int amt) {
