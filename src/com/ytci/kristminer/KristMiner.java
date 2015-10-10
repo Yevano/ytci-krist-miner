@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.locks.ReentrantLock;
 
+import org.apache.commons.cli.*;
+
 public class KristMiner {
     static class WorkerThread extends Thread {
         private static final Object accSendingSolutionLock = new Object();
@@ -177,7 +179,6 @@ public class KristMiner {
     static List<WorkerThread> workers = new ArrayList<>();
     static APIThread apiThread;
     static int numThreads;
-    static String address;
     static boolean paused = false;
     static final Object newBlockReady = new Object();
     static final Object pausedLock = new Object();
@@ -194,41 +195,19 @@ public class KristMiner {
     static int work;
     static int balance;
 
-    private static void showUsage() {
-        System.out.println("Arguments: <address> <threads> [prefix]");
-        System.out.println("    address: The krist address to mine for.");
-        System.out.println("    threads: The number of mining threads to spawn. In general,\n" +
-                           "             this should be less than or equal to the number of\n" +
-                           "             CPU cores on your system.");
-        System.out.println("    prefix:  A prefix for the submitted nonces. If you run     \n" +
-                           "             multiple miners for the same address, this should \n" +
-                           "             be unique for each miner.");
-        System.exit(0);
-    }
+    static KristConfig theConfig;
+    static CLContext theCLContext = new CLContext();
 
     public static void main(String[] args) {
-        /*byte[] h = SHA256.digest("asdashfbhejf8".getBytes());
-        for(int i = 0; i < h.length; i++) {
-            System.out.print((((int)h[i]) + 0) + ";");
-        }
-        System.out.println("\n" + SHA256.bytesToHex(h));
-        System.out.println(SHA256.hashToLong(h));
-        System.exit(0);*/
-        //System.out.println(SHA256.hashToLong(SHA256.digest("khic3jtob0000000001da55160969".getBytes(StandardCharsets.UTF_8))));
-        //System.exit(0);
+        theConfig = new KristConfig(args);
 
-        if(args.length < 2) showUsage();
-        address = args[0];
-        try {
-            numThreads = Integer.parseInt(args[1]);
-        } catch(NumberFormatException e) {
-            System.out.println("threads must be a positive integer.");
-            showUsage();
+        if (!theConfig.didSucceed()) {
+            System.err.println("Command line failed!");
+            System.exit(1);
+            return;
         }
-        if(numThreads < 1) {
-            System.out.println("threads must be a positive integer.");
-            showUsage();
-        }
+
+        theCLContext = new CLContext(); // Initialises an OpenCL context.
 
         startTime = System.currentTimeMillis();
 
@@ -236,9 +215,11 @@ public class KristMiner {
         APICalls.updateSyncNode();
         System.out.println("DONE");
 
-        String prefix = args.length > 2 ? args[2] : "";
+        String address = theConfig.getAddress();
+        System.out.println("Mining for address "+address);
+
         for(int i = 0; i < numThreads; i++) {
-            WorkerThread t = new WorkerThread(address, prefix + Integer.toString(i, 16));
+            WorkerThread t = new WorkerThread(address, theConfig.getPrefix() + Integer.toString(i, 16));
             workers.add(t);
         }
 
